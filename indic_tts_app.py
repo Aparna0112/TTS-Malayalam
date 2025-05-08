@@ -20,7 +20,6 @@ os.environ["HF_HUB_DOWNLOAD_TIMEOUT"] = "300"  # 5 minutes timeout
 trf_logging.set_verbosity_info()
 
 # Get Hugging Face token from environment variable
-# Get Hugging Face token from environment variable
 hf_token = os.environ.get("HF_TOKEN", "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")
 if hf_token:
     print("Logging in to Hugging Face...")
@@ -644,6 +643,10 @@ def stop_generation():
     streaming_tts.stop()
     return "Generation stopped"
 
+# Function to check public URL and display it
+def get_public_url_info():
+    return "Public URL will appear here when server starts"
+
 # Gradio interface with offline mode
 with gr.Blocks() as iface:
     gr.Markdown("## 🚀 IndicF5 Malayalam TTS")
@@ -651,6 +654,13 @@ with gr.Blocks() as iface:
     with gr.Row():
         gr.Markdown("### System Status:")
         system_status = gr.Markdown(f"- Device: {device}\n- Model loaded: {'Yes' if model is not None else 'No'}\n- Reference audio: {'Loaded' if ref_audio is not None else 'Not loaded'}")
+
+    # Add public URL info box
+    public_url_box = gr.Textbox(
+        label="📡 Public URL",
+        value="Starting server and generating public URL...", 
+        interactive=False
+    )
 
     with gr.Row():
         text_input = gr.Textbox(
@@ -728,8 +738,100 @@ def exit_handler():
 import atexit
 atexit.register(exit_handler)
 
-# Start the interface with flexible port selection
-print("Starting Gradio interface...")
-# Try a range of ports if 7860 is busy
-iface.launch(share=True)
+# Function to update the URL display
+def update_url_display(public_url, server_port):
+    public_url_box.update(f"✅ Public URL: {public_url}")
+    print(f"\n🔗 PUBLIC URL: {public_url}")
+    print(f"💻 Local URL: http://localhost:{server_port}")
+    
+    # Also display in terminal with emphasis
+    print("\n" + "=" * 80)
+    print(f"🌎 YOUR PUBLIC URL IS: {public_url}")
+    print("=" * 80 + "\n")
+    return public_url
 
+# Start the interface with improved URL generation
+print("Starting Gradio interface...")
+
+# Try multiple port options and ensure share is True
+try:
+    # Attempt with specific port first
+    launch_kwargs = {
+        "server_name": "0.0.0.0",  # Bind to all interfaces
+        "server_port": 7860,
+        "share": True,              # Always create public URL
+        "show_error": True,         # Show detailed errors
+        "quiet": False,             # Show full logs
+        "_frontend": False,         # Don't open browser automatically
+    }
+    
+    # Configure Gradio to expose the public URL when available
+    app, local_url, share_url = iface.launch(**launch_kwargs)
+    
+    # Update the URL display once available
+    if share_url:
+        update_url_display(share_url, launch_kwargs["server_port"])
+    else:
+        print("⚠️ No sharing URL was generated!")
+        # Try to get the URL from the app's networking info
+        try:
+            if hasattr(app, 'share_url') and app.share_url:
+                update_url_display(app.share_url, launch_kwargs["server_port"])
+        except:
+            pass
+except Exception as e:
+    print(f"Error launching on default port: {e}")
+    
+    # Try alternative ports if first attempt fails
+    # Try alternative ports if first attempt fails
+for port in [7861, 7862, 7863, 8000, 8080]:
+    try:
+        print(f"Trying alternate port {port}...")
+        launch_kwargs = {
+            "server_name": "0.0.0.0",
+            "server_port": port,
+            "share": True,
+            "show_error": True,
+            "quiet": False,
+            "_frontend": False,
+        }
+        
+        app, local_url, share_url = iface.launch(**launch_kwargs)
+        
+        if share_url:
+            update_url_display(share_url, port)
+            break  # Success, exit loop
+        else:
+            print(f"⚠️ No sharing URL generated on port {port}")
+    except Exception as e:
+        print(f"Failed to launch on port {port}: {e}")
+        continue  # Try next port
+
+# If we've tried all ports and still failed, try one last attempt with random port
+if not share_url:
+    try:
+        print("Trying with random port...")
+        launch_kwargs = {
+            "server_name": "0.0.0.0",
+            "share": True,
+            "show_error": True,
+            "quiet": False,
+            "_frontend": False,
+        }
+        
+        app, local_url, share_url = iface.launch(**launch_kwargs)
+        
+        if share_url:
+            # Extract port from local_url
+            import re
+            port_match = re.search(r":(\d+)", local_url)
+            port = port_match.group(1) if port_match else "unknown"
+            update_url_display(share_url, port)
+        else:
+            print("⚠️ Failed to generate public URL even with random port")
+            public_url_box.update("⚠️ Could not generate public URL. Please check your network settings.")
+    except Exception as final_e:
+        print(f"Final launch attempt failed: {final_e}")
+        public_url_box.update("⚠️ Server launch failed. See logs for details.")
+
+print("Server startup complete. Press Ctrl+C to exit.")
