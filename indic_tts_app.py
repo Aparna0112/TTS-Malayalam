@@ -731,5 +731,5 @@ atexit.register(exit_handler)
 # Start the interface with flexible port selection
 print("Starting Gradio interface...")
 # Try a range of ports if 7860 is busy
-iface.launch()
-# ... rest of your code ...
+iface.launch(share=True)
+
