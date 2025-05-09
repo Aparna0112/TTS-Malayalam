@@ -1,4 +1,5 @@
 git+https://github.com/ai4bharat/IndicF5.git
+spaces
 accelerate>=0.33.0
 cached_path
 click
@@ -22,4 +23,3 @@ vocos
 wandb
 librosa
 x_transformers>=1.31.14
-spaces
